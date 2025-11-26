@@ -92,7 +92,7 @@ def chat_stream():
             # OpenAI SDK - Streaming
             ###########################################
             stream = client.chat.completions.create(
-                model="gemini-flash-lite-latest",
+                model="gemini/gemini-flash-lite-latest",
                 messages=messages,
                 stream=True
             )
@@ -110,6 +110,7 @@ def chat_stream():
         return jsonify({"error": str(e)}), 500
 
 
+
 @app.route("/models", methods=["GET"])
 def list_models():
     try:
@@ -122,6 +123,77 @@ def list_models():
         })
         ###########################################
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/structured", methods=["POST"])
+def structured_output():
+    """
+    Structured output endpoint using JSON mode.
+    Forces the model to return valid JSON.
+    """
+    try:
+        data = request.get_json()
+        if not data or "prompt" not in data:
+            return jsonify({"error": "Missing 'prompt' in request body"}), 400
+        
+        user_prompt = data["prompt"]
+        json_schema = data.get("schema", None)
+        
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant. Always respond with valid JSON only."},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        ###########################################
+        # OpenAI SDK - Structured Output (JSON Mode)
+        ###########################################
+        if json_schema:
+            # Use json_schema format for strict validation
+            response = client.chat.completions.create(
+                model="gemini/gemini-flash-lite-latest",
+                messages=messages,
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "response",
+                        "schema": json_schema
+                    }
+                }
+            )
+        else:
+            # Use basic json_object mode
+            response = client.chat.completions.create(
+                model="gemini/gemini-flash-lite-latest",
+                messages=messages,
+                response_format={"type": "json_object"}
+            )
+        ###########################################
+        
+        raw_response = response.choices[0].message.content
+        
+        # Parse the JSON response
+        try:
+            parsed = json.loads(raw_response)
+            return jsonify({
+                "success": True,
+                "data": parsed,
+                "raw_response": raw_response,
+                "usage": {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens
+                }
+            })
+        except json.JSONDecodeError:
+            return jsonify({
+                "success": False,
+                "error": "Failed to parse response as JSON",
+                "raw_response": raw_response
+            })
+        
+    except Exception as e:
+        print(f"Structured error: {e}")
         return jsonify({"error": str(e)}), 500
 
 

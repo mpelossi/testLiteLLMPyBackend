@@ -266,6 +266,8 @@
                 <button class="test-btn" onclick="testSentimentAnalysis()">Sentiment Analysis</button>
                 <button class="test-btn" onclick="testDataClassification()">Data Classification</button>
                 <button class="test-btn" onclick="testEntityExtraction()">Entity Extraction</button>
+                <button class="test-btn" style="background: #2e7d32;" onclick="testStructuredOutput()">✨ Structured Output (JSON Mode)</button>
+                <button class="test-btn" style="background: #1565c0;" onclick="testStructuredSchema()">📋 Structured + Schema</button>
             </div>
             <div class="test-output" id="testOutput">Test results will appear here...</div>
         </div>
@@ -529,6 +531,77 @@ Return ONLY valid JSON.`;
                 const data = await response.json();
                 const parsed = parseJsonResponse(data.response);
                 showResult(prompt, data.response, parsed, data.usage);
+            } catch (error) {
+                setTestOutput(`Error: ${error.message}`);
+            }
+        }
+
+        // ==========================================
+        // NEW: Structured Output Tests (JSON Mode)
+        // ==========================================
+        
+        async function testStructuredOutput() {
+            setTestOutput('Testing structured output (JSON mode)...');
+            const prompt = `List 3 famous scientists with their birth year and main discovery.`;
+
+            try {
+                const response = await fetch(`${API_BASE}/structured`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showResult(prompt + "\n\n[Using response_format: json_object]", data.raw_response, data.data, data.usage);
+                } else {
+                    showResult(prompt, data.raw_response || data.error, null, data.usage);
+                }
+            } catch (error) {
+                setTestOutput(`Error: ${error.message}`);
+            }
+        }
+
+        async function testStructuredSchema() {
+            setTestOutput('Testing structured output with JSON schema...');
+            const prompt = `Extract info about this product: "MacBook Pro 16-inch with M3 chip, 32GB RAM, 1TB SSD, priced at $2499"`;
+            
+            const schema = {
+                "type": "object",
+                "properties": {
+                    "product_name": { "type": "string" },
+                    "specifications": {
+                        "type": "object",
+                        "properties": {
+                            "chip": { "type": "string" },
+                            "ram": { "type": "string" },
+                            "storage": { "type": "string" }
+                        }
+                    },
+                    "price": { "type": "number" },
+                    "currency": { "type": "string" }
+                },
+                "required": ["product_name", "price"]
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/structured`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        prompt: prompt,
+                        schema: schema 
+                    })
+                });
+                const data = await response.json();
+                
+                const fullPrompt = prompt + "\n\n[Using response_format: json_schema]\nSchema:\n" + JSON.stringify(schema, null, 2);
+                
+                if (data.success) {
+                    showResult(fullPrompt, data.raw_response, data.data, data.usage);
+                } else {
+                    showResult(fullPrompt, data.raw_response || data.error, null, data.usage);
+                }
             } catch (error) {
                 setTestOutput(`Error: ${error.message}`);
             }

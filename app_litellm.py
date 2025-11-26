@@ -124,6 +124,78 @@ def list_models():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/structured", methods=["POST"])
+def structured_output():
+    """
+    Structured output endpoint using JSON mode.
+    Forces the model to return valid JSON.
+    """
+    try:
+        data = request.get_json()
+        if not data or "prompt" not in data:
+            return jsonify({"error": "Missing 'prompt' in request body"}), 400
+        
+        user_prompt = data["prompt"]
+        json_schema = data.get("schema", None)
+        
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant. Always respond with valid JSON only."},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        ###########################################
+        # LiteLLM SDK - Structured Output (JSON Mode)
+        ###########################################
+        completion_kwargs = {
+            "model": "openai/gemini-flash-lite-latest",
+            "messages": messages,
+            "api_key": LITELLM_API_KEY,
+            "api_base": LITELLM_BASE_URL,
+        }
+        
+        if json_schema:
+            # Use json_schema format for strict validation
+            completion_kwargs["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "response",
+                    "schema": json_schema
+                }
+            }
+        else:
+            # Use basic json_object mode
+            completion_kwargs["response_format"] = {"type": "json_object"}
+        
+        response = litellm.completion(**completion_kwargs)
+        ###########################################
+        
+        raw_response = response.choices[0].message.content
+        
+        # Parse the JSON response
+        try:
+            parsed = json.loads(raw_response)
+            return jsonify({
+                "success": True,
+                "data": parsed,
+                "raw_response": raw_response,
+                "usage": {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens
+                }
+            })
+        except json.JSONDecodeError:
+            return jsonify({
+                "success": False,
+                "error": "Failed to parse response as JSON",
+                "raw_response": raw_response
+            })
+        
+    except Exception as e:
+        print(f"Structured error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     print("=" * 50)
     print("BACKEND: LiteLLM SDK")
