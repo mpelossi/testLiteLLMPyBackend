@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiteLLM Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .chat-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message.user {
+            align-items: flex-end;
+        }
+
+        .message.assistant {
+            align-items: flex-start;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 16px;
+            line-height: 1.5;
+        }
+
+        .message.user .message-bubble {
+            background: #667eea;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant .message-bubble {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .chat-input-container {
+            display: flex;
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        #messageInput:focus {
+            border-color: #667eea;
+        }
+
+        #sendBtn {
+            margin-left: 10px;
+            padding: 12px 24px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #sendBtn:hover {
+            background: #5a6fd6;
+        }
+
+        #sendBtn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .test-section {
+            margin-top: 20px;
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .test-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .test-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .test-btn {
+            padding: 10px 20px;
+            background: #764ba2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .test-btn:hover {
+            background: #5a3a7e;
+        }
+
+        .test-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .section-label {
+            color: #569cd6;
+            font-weight: bold;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 5px;
+        }
+
+        .section-label:first-child {
+            margin-top: 0;
+        }
+
+        .json-block {
+            background: #2d2d2d;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+            border-left: 3px solid #569cd6;
+        }
+
+        .parsed-block {
+            background: #1a3a1a;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+            border-left: 3px solid #4ec9b0;
+        }
+
+        .usage-line {
+            color: #888;
+            font-size: 12px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #444;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status {
+            padding: 10px 20px;
+            background: #e8f5e9;
+            color: #2e7d32;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 LiteLLM Chat - Gemini Flash Lite</h1>
+        
+        <div class="chat-container">
+            <div id="status" class="status">Checking connection...</div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="message assistant">
+                    <span class="message-label">Assistant</span>
+                    <div class="message-bubble">Hello! I'm powered by Gemini Flash Lite. How can I help you today?</div>
+                </div>
+            </div>
+            <div class="chat-input-container">
+                <input type="text" id="messageInput" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+                <button id="sendBtn" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Structured Data Tests</h2>
+            <div class="test-buttons">
+                <button class="test-btn" onclick="testHealthCheck()">Health Check</button>
+                <button class="test-btn" onclick="testListModels()">List Models</button>
+                <button class="test-btn" onclick="testJsonExtraction()">JSON Extraction</button>
+                <button class="test-btn" onclick="testSentimentAnalysis()">Sentiment Analysis</button>
+                <button class="test-btn" onclick="testDataClassification()">Data Classification</button>
+                <button class="test-btn" onclick="testEntityExtraction()">Entity Extraction</button>
+            </div>
+            <div class="test-output" id="testOutput">Test results will appear here...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000';
+        let conversationHistory = [];
+
+        // Check API health on load
+        window.onload = async () => {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                document.getElementById('status').textContent = '✅ Connected to backend';
+                document.getElementById('status').classList.remove('error');
+            } catch (error) {
+                document.getElementById('status').textContent = '❌ Backend not connected - Start the Flask server';
+                document.getElementById('status').classList.add('error');
+            }
+        };
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            // Add user message to chat
+            addMessage(message, 'user');
+            input.value = '';
+
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="loading"></span>';
+
+            try {
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_history: conversationHistory
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    addMessage(data.response, 'assistant');
+                    conversationHistory.push({ role: 'user', content: message });
+                    conversationHistory.push({ role: 'assistant', content: data.response });
+                } else {
+                    addMessage(`Error: ${data.error}`, 'assistant');
+                }
+            } catch (error) {
+                addMessage(`Error: ${error.message}`, 'assistant');
+            }
+
+            sendBtn.disabled = false;
+            sendBtn.textContent = 'Send';
+        }
+
+        function addMessage(text, role) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            messageDiv.innerHTML = `
+                <span class="message-label">${role === 'user' ? 'You' : 'Assistant'}</span>
+                <div class="message-bubble">${escapeHtml(text)}</div>
+            `;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function setTestOutput(content) {
+            const output = document.getElementById('testOutput');
+            if (typeof content === 'string') {
+                output.textContent = content;
+            } else {
+                output.textContent = JSON.stringify(content, null, 2);
+            }
+        }
+
+        function parseJsonResponse(responseText) {
+            let cleaned = responseText.trim();
+            if (cleaned.startsWith("```json")) cleaned = cleaned.slice(7);
+            if (cleaned.startsWith("```")) cleaned = cleaned.slice(3);
+            if (cleaned.endsWith("```")) cleaned = cleaned.slice(0, -3);
+            try {
+                return JSON.parse(cleaned.trim());
+            } catch {
+                return null;
+            }
+        }
+
+        function showResult(prompt, rawResponse, parsed, usage) {
+            const output = document.getElementById('testOutput');
+            let html = '';
+            
+            // Prompt
+            html += `<div class="section-label">📤 PROMPT</div>`;
+            html += `<div class="json-block">${escapeHtml(prompt)}</div>`;
+            
+            // Raw Response
+            html += `<div class="section-label">📥 RAW RESPONSE</div>`;
+            html += `<div class="json-block">${escapeHtml(rawResponse)}</div>`;
+            
+            // Parsed JSON
+            if (parsed) {
+                html += `<div class="section-label">✅ PARSED JSON</div>`;
+                html += `<div class="parsed-block">${escapeHtml(JSON.stringify(parsed, null, 2))}</div>`;
+            }
+            
+            // Usage
+            if (usage) {
+                html += `<div class="usage-line">📊 Tokens: ${usage.prompt_tokens} prompt + ${usage.completion_tokens} completion = ${usage.total_tokens} total</div>`;
+            }
+            
+            output.innerHTML = html;
+        }
+
+        async function testHealthCheck() {
+            setTestOutput('Testing health check...');
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                setTestOutput(data);
+            } catch (error) {
+                setTestOutput(`Error: ${error.message}`);
+            }
+        }
+
+        async function testListModels() {
+            setTestOutput('Fetching available models...');
+            try {
+                const response = await fetch(`${API_BASE}/models`);
+                const data = await response.json();
+                setTestOutput(data);
+            } catch (error) {
+                setTestOutput(`Error: ${error.message}`);
+            }
+        }
+
+        async function testJsonExtraction() {
+            setTestOutput('Testing JSON extraction...');
+            const prompt = `Extract the following information as JSON:
+            
+Product: iPhone 15 Pro
+Price: $999
+Color: Titanium Blue
+Storage: 256GB
+In Stock: Yes
+
+Return ONLY valid JSON with keys: product, price, color, storage, inStock`;
+
+            try {
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: prompt })
+                });
+                const data = await response.json();
+                const parsed = parseJsonResponse(data.response);
+                showResult(prompt, data.response, parsed, data.usage);
+            } catch (error) {
+                setTestOutput(`Error: ${error.message}`);
+            }
+        }
+
+        async function testSentimentAnalysis() {
+            setTestOutput('Testing sentiment analysis...');
+            const reviews = [
+                "This product is amazing! Best purchase ever!",
+                "Terrible experience, would not recommend.",
+                "It's okay, nothing special but does the job."
+            ];
+            
+            const prompt = `Analyze the sentiment of each review and return a JSON array with objects containing "review" and "sentiment" (positive/negative/neutral) and "confidence" (0-1):
+
+Reviews:
+${reviews.map((r, i) => `${i + 1}. "${r}"`).join('\n')}
+
+Return ONLY valid JSON array.`;
+
+            try {
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: prompt })
+                });
+                const data = await response.json();
+                const parsed = parseJsonResponse(data.response);
+                showResult(prompt, data.response, parsed, data.usage);
+            } catch (error) {
+                setTestOutput(`Error: ${error.message}`);
+            }
+        }
+
+        async function testDataClassification() {
+            setTestOutput('Testing data classification...');
+            const items = [
+                "The quarterly earnings report shows 15% growth",
+                "New recipe: How to make perfect pasta carbonara",
+                "Breaking: Earthquake hits coastal region",
+                "Top 10 programming languages in 2024",
+                "Local team wins championship after overtime thriller"
+            ];
+
+            const prompt = `Classify each item into a category (Business, Food, News, Technology, Sports) and return as JSON array with "text" and "category" fields:
+
+Items:
+${items.map((item, i) => `${i + 1}. "${item}"`).join('\n')}
+
+Return ONLY valid JSON array.`;
+
+            try {
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: prompt })
+                });
+                const data = await response.json();
+                const parsed = parseJsonResponse(data.response);
+                showResult(prompt, data.response, parsed, data.usage);
+            } catch (error) {
+                setTestOutput(`Error: ${error.message}`);
+            }
+        }
+
+        async function testEntityExtraction() {
+            setTestOutput('Testing entity extraction...');
+            const text = `Apple Inc. CEO Tim Cook announced yesterday at their Cupertino headquarters 
+that the company will invest $5 billion in European manufacturing. The expansion 
+will create 3,000 jobs in Germany and France by Q3 2025. Microsoft and Google 
+are also expected to follow with similar investments.`;
+
+            const prompt = `Extract all named entities from this text and categorize them. Return as JSON with these categories: organizations, people, locations, money, dates, numbers.
+
+Text: "${text}"
+
+Return ONLY valid JSON.`;
+
+            try {
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: prompt })
+                });
+                const data = await response.json();
+                const parsed = parseJsonResponse(data.response);
+                showResult(prompt, data.response, parsed, data.usage);
+            } catch (error) {
+                setTestOutput(`Error: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>
